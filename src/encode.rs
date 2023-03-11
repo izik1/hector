@@ -6,11 +6,11 @@ pub struct Error;
 
 impl core::fmt::Display for Error {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.write_str("encode error: Wrong output size for input")
+        f.write_str("encode error: wrong output size for input")
     }
 }
 
-// this is basically the only use for `std` as a crate feature here (likewise with [DecodeError](crate::DecodeError)).
+// This is basically the only use for `std` as a crate feature here (likewise with [DecodeError](crate::DecodeError)).
 #[cfg(feature = "std")]
 impl std::error::Error for Error {}
 

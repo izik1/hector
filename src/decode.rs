@@ -46,6 +46,7 @@ impl core::fmt::Display for Error {
     }
 }
 
+// This is basically the only use for `std` as a crate feature here (likewise with [EncodeError](crate::EncodeError)).
 #[cfg(feature = "std")]
 impl std::error::Error for Error {}
 
@@ -59,16 +60,16 @@ impl std::error::Error for Error {}
 ///
 /// # Examples
 /// ```
-/// // it works with binary strings
+/// // It works with binary strings.
 /// assert_eq!(hector::decode(b"decaff"), Ok(vec![0xde, 0xca, 0xff]));
 ///
-/// // it works with normal strings too
+/// // It works with normal strings too.
 /// assert_eq!(hector::decode("decaff"), Ok(vec![0xde, 0xca, 0xff]));
 ///
 /// // ... and uppercase
 /// assert_eq!(hector::decode("DECAFF"), Ok(vec![0xde, 0xca, 0xff]));
 ///
-/// // mixed case works just fine as well
+/// // Mixed case works just fine as well.
 /// assert_eq!(hector::decode("C0Ffee"), Ok(vec![0xc0, 0xff, 0xee]))
 /// ```
 /// ```
@@ -77,8 +78,8 @@ impl std::error::Error for Error {}
 /// ```
 #[cfg(feature = "alloc")]
 pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, Error> {
-    // todo: copy the structure of the encode module.
-    // todo: faster impl
+    // todo: Copy the structure of the encode module.
+    // todo: Faster impl
     fn inner(input: &[u8]) -> Result<Vec<u8>, Error> {
         if input.len() % 2 != 0 {
             return Err(Error::OddLength);
@@ -107,16 +108,16 @@ pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, Error> {
 /// this function assumes that the input is already a hex char.
 fn decode_trusted_char(nibble: u8) -> u8 {
     if nibble > b'9' {
-        // mask out the "lowercase" bit, subtract the start of the valid range (b'A'), then we still need to add 10.
+        // Mask out the "lowercase" bit, subtract the start of the valid range (b'A'), then we still need to add 10.
         (nibble & !0x20) - b'A' + 10
     } else {
         nibble - b'0'
     }
-    // todo: profile different versions such as:
+    // todo: Profile different versions such as:
     // (nibble & 0xf) + (nibble >> 6) + ((nibble >> 6) << 3)
 }
 
-// note: this function is effectively optimal for "errors are common, precise location of error is required"
+// note: This function is effectively optimal for "errors are common, precise location of error is required"
 // better functions could easily exist for "errors are rare" and/or "location of error is not required"
 // notably, if errors are rare you could iterate through the list in chunks looking for an error,
 // and look again for where that error is, if one is found.

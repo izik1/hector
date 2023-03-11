@@ -19,12 +19,12 @@ const fn nibble_to_hex<const UPPER: bool>(nibble: u8) -> HexChar {
     // the conversion for numbers from 0-9 is simple: just start with ascii-`0` and add `nibble`.
     let digit = nibble + b'0';
 
-    // however, for numbers from 0xa-0xf, we need to do a bit of extra work,
+    // However, for numbers from 0xa-0xf, we need to do a bit of extra work,
     // because we'll currently have a character that's one of: `:;<=>?`, which are... Not what we're looking for.
     // So, we need to move from the `0-9` range of ascii to the a-f (or A-F) range, which can be done by adding in the following adjustment:
     let adjustment = ascii_a - 1 - b'9';
 
-    // this is written as a multiplication by a bool instead of an if/else because the compiler gets confused when there's conditionals,
+    // This is written as a multiplication by a bool instead of an if/else because the compiler gets confused when there's conditionals,
     // and it doesn't output code that's quite as good.
     // Likewise, we compare `digit` to ascii-9 instead of `tmp` to the number 9 because the compiler generates slightly better code.
     digit + (digit > b'9') as u8 * adjustment
@@ -45,7 +45,7 @@ const fn byte_to_hex<const UPPER: bool>(byte: u8) -> [HexChar; 2] {
 }
 
 pub(super) fn encode<const UPPER: bool>(input: &[u8]) -> String {
-    // this solution was chosen out of the following 4:
+    // This solution was chosen out of the following 4:
     // 1. `Vec::with_capacity` + `Vec::push`. This ended up emitting a resize-check for `push`,
     //    which prevents autovectorization.
     // 2. This solutions. We pay for an extra check on the `flat_map` to assert we don't overflow a `usize`
@@ -53,7 +53,7 @@ pub(super) fn encode<const UPPER: bool>(input: &[u8]) -> String {
     // 3. `vec![0; {len}]` + `encode_to_slice`. This would require emitting a `rust_allocate_zeroed` instead of a `rust_allocate`.
     // 4. `Vec::with_capacity` + `Vec::spare_capacity_mut`. This requires extra unsafe code..
 
-    // we use an iterator here ensure that we don't do resizing checks
+    // We use an iterator here ensure that we don't do resizing checks
     // This works because `flat_map` is `TrustedLen` when:
     // 1. `I` is `TrustedLen` (which it is)
     // and 2. The output getting flattened is an array/reference to an array (which it is)
@@ -63,8 +63,8 @@ pub(super) fn encode<const UPPER: bool>(input: &[u8]) -> String {
         .flat_map(byte_to_hex::<UPPER>)
         .collect();
 
-    // safety: for all values of input bytes both output bytes will be valid ascii-hex (as asserted by tests for `byte_to_hex`).
-    // ascii hex characters are valid UTF-8 (because ascii is valid UTF-8).
+    // Safety: for all values of input bytes both output bytes will be valid ascii-hex (as asserted by tests for `byte_to_hex`).
+    // Ascii hex characters are valid UTF-8 (because ascii is valid UTF-8).
     // Therefore, this is a valid conversion.
     unsafe { String::from_utf8_unchecked(output) }
 }
@@ -83,7 +83,9 @@ pub(super) fn encode_to_slice<'a, const UPPER: bool>(
         [output[0], output[1]] = byte_to_hex::<UPPER>(input);
     }
 
-    // safety: for all values of input bytes both output bytes will be valid ascii_hex and therefore make valid strings.
+    // Safety: for all values of input bytes both output bytes will be valid ascii-hex (as asserted by tests for `byte_to_hex`).
+    // Ascii hex characters are valid UTF-8 (because ascii is valid UTF-8).
+    // Therefore, this is a valid conversion.
     Ok(unsafe { core::str::from_utf8_unchecked_mut(output) })
 }
 
@@ -100,12 +102,14 @@ pub(super) fn encode_array<'a, const N: usize, const M: usize, const UPPER: bool
 ) -> &'a str {
     assert!(N * 2 == M);
 
-    // array chunks would be _neat_, but relying on LLVM here is _fine_ (just make sure it code-gens well).
+    // Array chunks would be _neat_, but relying on LLVM here is _fine_ (just make sure it code-gens well).
     for (output, input) in output.chunks_exact_mut(2).zip(input.iter().copied()) {
         [output[0], output[1]] = byte_to_hex::<UPPER>(input);
     }
 
-    // safety: for all values of input bytes both output bytes will be valid ascii_hex and therefore make valid strings.
+    // Safety: for all values of input bytes both output bytes will be valid ascii-hex (as asserted by tests for `byte_to_hex`).
+    // Ascii hex characters are valid UTF-8 (because ascii is valid UTF-8).
+    // Therefore, this is a valid conversion.
     unsafe { core::str::from_utf8_unchecked_mut(output) }
 }
 

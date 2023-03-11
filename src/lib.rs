@@ -9,7 +9,7 @@
 #[cfg(feature = "alloc")]
 extern crate alloc;
 
-// assume we have `std` in tests.
+// Assume we have `std` in tests.
 #[cfg(any(feature = "std", test))]
 extern crate std;
 
