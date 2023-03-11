@@ -26,6 +26,29 @@ pub enum Error {
     },
 }
 
+impl core::fmt::Display for Error {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Error::OddLength => f.write_str("input had an odd length"),
+            Error::InvalidHex { offset, value } => write!(
+                f,
+                "character `{char_value}` ({value:#2x}) at `{offset}` is not a valid hex character",
+                char_value = *value as char
+            ),
+            Error::MismatchedLength {
+                source_len,
+                dest_len,
+            } => write!(
+                f,
+                "source / destination buffer length mismatch: `{source_len} != 2 * {dest_len}`"
+            ),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {}
+
 /// Decode the hex encoded `input`.
 ///
 /// This function does _not_ enforce a specific casing convention.
@@ -56,30 +79,30 @@ pub enum Error {
 pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, Error> {
     // todo: copy the structure of the encode module.
     // todo: faster impl
+    fn inner(input: &[u8]) -> Result<Vec<u8>, Error> {
+        if input.len() % 2 != 0 {
+            return Err(Error::OddLength);
+        }
 
-    let input = input.as_ref();
+        validate_hex(input)?;
 
-    if input.len() % 2 != 0 {
-        return Err(Error::OddLength);
+        let output = input
+            .chunks_exact(2)
+            .map(|byte| {
+                let high = decode_trusted_char(byte[0]);
+                let low = decode_trusted_char(byte[1]);
+
+                high << 4 | low
+            })
+            .collect();
+
+        Ok(output)
     }
 
-    validate_hex(input)?;
-
-    let output = input
-        .chunks_exact(2)
-        .into_iter()
-        .map(|byte| {
-            let high = decode_trusted_char(byte[0]);
-            let low = decode_trusted_char(byte[1]);
-
-            high << 4 | low
-        })
-        .collect();
-
-    Ok(output)
+    inner(input.as_ref())
 }
 
-/// Decodes 1 nibble's worth of data
+/// Decodes 4-bits worth of data
 ///
 /// this function assumes that the input is already a hex char.
 fn decode_trusted_char(nibble: u8) -> u8 {
@@ -89,19 +112,21 @@ fn decode_trusted_char(nibble: u8) -> u8 {
     } else {
         nibble - b'0'
     }
+    // todo: profile different versions such as:
+    // (nibble & 0xf) + (nibble >> 6) + ((nibble >> 6) << 3)
 }
 
+// note: this function is effectively optimal for "errors are common, precise location of error is required"
+// better functions could easily exist for "errors are rare" and/or "location of error is not required"
+// notably, if errors are rare you could iterate through the list in chunks looking for an error,
+// and look again for where that error is, if one is found.
+// if the location of the error is not required
 fn validate_hex(input: &[u8]) -> Result<(), Error> {
-    input
-        .iter()
-        .copied()
-        .enumerate()
-        .map(|(offset, value)| {
-            if value.is_ascii_hexdigit() {
-                Ok(())
-            } else {
-                Err(Error::InvalidHex { offset, value })
-            }
-        })
-        .collect()
+    input.iter().enumerate().try_for_each(|(offset, &value)| {
+        if value.is_ascii_hexdigit() {
+            Ok(())
+        } else {
+            Err(Error::InvalidHex { offset, value })
+        }
+    })
 }

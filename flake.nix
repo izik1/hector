@@ -2,7 +2,7 @@
 # only `name` and `description` below.
 
 {
-  description = "hector";
+  description = "a hex encoding library for rust";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
@@ -26,7 +26,7 @@
 
           # Configuration for the non-Rust dependencies
           buildInputs = with pkgs; [ ];
-          nativeBuildInputs = with pkgs; [ rustc cargo pkgconfig ];
+          nativeBuildInputs = with pkgs; [ rustc cargo ];
         in
         rec {
           # `nix develop`
@@ -39,8 +39,6 @@
                     extensions = [ "rust-src" ];
                   })
                   nixpkgs-fmt
-                  cargo-outdated
-                  cargo-edit
                 ]);
             };
         }

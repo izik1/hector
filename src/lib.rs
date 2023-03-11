@@ -1,5 +1,10 @@
+//! Hector is a hex encoding library,
+//! persuing the library trifecta of fast, free, and easy to use.
+
 #![no_std]
+#![warn(let_underscore_drop, noop_method_call)]
 #![warn(clippy::must_use_candidate)]
+#![deny(unreachable_pub)]
 
 #[cfg(feature = "alloc")]
 extern crate alloc;
