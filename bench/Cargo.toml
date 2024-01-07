@@ -1,0 +1,19 @@
+[package]
+name = "hector-benches"
+version = "0.0.0"
+description = "hex encoding library benchmarks"
+license = "MIT OR Apache-2.0"
+edition = "2021"
+publish = false
+
+# The whole reason this is a separate crate is to make `hector` trivially depless.
+[dev-dependencies]
+criterion = "0.5"
+hex = "0.4"
+faster-hex = "0.9.0"
+rand = "0.8.5"
+
+[[bench]]
+name = "encode-compare"
+harness = false
+required-features = ["std"]
