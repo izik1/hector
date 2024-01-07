@@ -44,6 +44,7 @@ const fn byte_to_hex<const UPPER: bool>(byte: u8) -> [HexChar; 2] {
     ]
 }
 
+#[cfg(feature = "alloc")]
 pub(super) fn encode<const UPPER: bool>(input: &[u8]) -> String {
     // This solution was chosen out of the following 4:
     // 1. `Vec::with_capacity` + `Vec::push`. This ended up emitting a resize-check for `push`,
