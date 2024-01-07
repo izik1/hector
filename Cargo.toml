@@ -14,9 +14,9 @@ std = ["alloc"]
 [dependencies]
 
 [dev-dependencies]
-criterion = "0.4"
-hex = "0.3"
-faster-hex = "0.6.1"
+criterion = "0.5"
+hex = "0.4"
+faster-hex = "0.9.0"
 rand = "0.8.5"
 
 [[bench]]
