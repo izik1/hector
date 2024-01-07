@@ -19,6 +19,7 @@ mod encode;
 pub use decode::Error as DecodeError;
 pub use encode::Error as EncodeError;
 
+pub use decode::decode_to_slice;
 pub use encode::{encode_to_array, encode_to_array_upper, encode_to_slice, encode_to_slice_upper};
 
 #[cfg(feature = "alloc")]

@@ -50,6 +50,8 @@ impl core::fmt::Display for Error {
 #[cfg(feature = "std")]
 impl std::error::Error for Error {}
 
+mod fallback;
+
 /// Decode the hex encoded `input`.
 ///
 /// This function does _not_ enforce a specific casing convention.
@@ -78,56 +80,50 @@ impl std::error::Error for Error {}
 /// ```
 #[cfg(feature = "alloc")]
 pub fn decode<T: AsRef<[u8]>>(input: T) -> Result<Vec<u8>, Error> {
-    // todo: Copy the structure of the encode module.
-    // todo: Faster impl
-    fn inner(input: &[u8]) -> Result<Vec<u8>, Error> {
-        if input.len() % 2 != 0 {
-            return Err(Error::OddLength);
-        }
-
-        validate_hex(input)?;
-
-        let output = input
-            .chunks_exact(2)
-            .map(|byte| {
-                let high = decode_trusted_char(byte[0]);
-                let low = decode_trusted_char(byte[1]);
-
-                high << 4 | low
-            })
-            .collect();
-
-        Ok(output)
-    }
-
-    inner(input.as_ref())
+    fallback::decode(input.as_ref())
 }
 
-/// Decodes 4-bits worth of data
+/// Decode the hex encoded `input`.
 ///
-/// this function assumes that the input is already a hex char.
-fn decode_trusted_char(nibble: u8) -> u8 {
-    if nibble > b'9' {
-        // Mask out the "lowercase" bit, subtract the start of the valid range (b'A'), then we still need to add 10.
-        (nibble & !0x20) - b'A' + 10
-    } else {
-        nibble - b'0'
-    }
-    // todo: Profile different versions such as:
-    // (nibble & 0xf) + (nibble >> 6) + ((nibble >> 6) << 3)
-}
-
-// note: This function is effectively optimal for "errors are common, precise location of error is required"
-// better functions could easily exist for "errors are rare" and/or "location of error is not required"
-// notably, if errors are rare you could iterate through the list in chunks looking for an error,
-// and look again for where that error is, if one is found.
-// if the location of the error is not required
-fn validate_hex(input: &[u8]) -> Result<(), Error> {
-    input.iter().enumerate().try_for_each(|(offset, &value)| {
-        if value.is_ascii_hexdigit() {
-            Ok(())
-        } else {
-            Err(Error::InvalidHex { offset, value })
-        }
-    })
+/// This function does _not_ enforce a specific casing convention.
+///
+/// # Errors
+/// - [`Error::OddLength`] if `input.len()` is not even.
+/// - [`Error::InvalidHex`] if any character isn't a valid hex character.
+///
+/// # Examples
+/// ```
+/// // It works with binary strings.
+/// let mut storage = [0; 3];
+/// assert_eq!(hector::decode_to_slice(b"decaff", &mut storage), Ok([0xde, 0xca, 0xff].as_slice()));
+///
+/// // It works with normal strings too.
+/// let mut storage = [0; 3];
+/// assert_eq!(hector::decode_to_slice("decaff", &mut storage), Ok([0xde, 0xca, 0xff].as_slice()));
+///
+/// // ... and uppercase
+/// assert_eq!(hector::decode_to_slice("DECAFF", &mut storage), Ok([0xde, 0xca, 0xff].as_slice()));
+///
+/// // Mixed case works just fine as well.
+/// let mut storage = [0; 3];
+/// assert_eq!(hector::decode_to_slice("C0Ffee", &mut storage), Ok([0xc0, 0xff, 0xee].as_slice()));
+/// ```
+///
+/// ```
+/// let mut storage = [0; 13];
+/// let output = hector::decode_to_slice("48656c6c6f2c20776f726c6421", &mut storage);
+///
+/// assert_eq!(output, Ok(b"Hello, world!".as_slice()));
+/// assert_eq!(&storage, b"Hello, world!");
+/// ```
+///
+/// ```
+/// use hector::DecodeError;
+/// let mut storage = [0; 2];
+///
+/// let output = hector::decode_to_slice(b"abcde", &mut storage);
+/// assert_eq!(output, Err(DecodeError::MismatchedLength { source_len: 5, dest_len: 2 }));
+/// ```
+pub fn decode_to_slice<T: AsRef<[u8]>>(input: T, output: &mut [u8]) -> Result<&[u8], Error> {
+    fallback::decode_to_slice(input.as_ref(), output)
 }
