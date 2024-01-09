@@ -1,7 +1,9 @@
+use core::mem::MaybeUninit;
+
 use super::Error;
 
 #[cfg(feature = "alloc")]
-use alloc::string::String;
+use alloc::{string::String, vec::Vec};
 
 /// A single character in hexidecimal.
 ///
@@ -49,20 +51,20 @@ pub(super) fn encode<const UPPER: bool>(input: &[u8]) -> String {
     // This solution was chosen out of the following 4:
     // 1. `Vec::with_capacity` + `Vec::push`. This ended up emitting a resize-check for `push`,
     //    which prevents autovectorization.
-    // 2. This solutions. We pay for an extra check on the `flat_map` to assert we don't overflow a `usize`
-    //   (even though `collect` does a more restrictive check just a bit later).
+    // 2. `flat_map` + `collect`. Pays for an unneeded assert to ensure we don't overflow a `usize`
+    //    (even though `collect` does a more restrictive check just a bit later).
     // 3. `vec![0; {len}]` + `encode_to_slice`. This would require emitting a `rust_allocate_zeroed` instead of a `rust_allocate`.
-    // 4. `Vec::with_capacity` + `Vec::spare_capacity_mut`. This requires extra unsafe code..
+    // 4. (this solution) `Vec::with_capacity` + `Vec::spare_capacity_mut`.
+    //    This requires extra unsafe code...
+    let out_len = input.len() * 2;
 
-    // We use an iterator here ensure that we don't do resizing checks
-    // This works because `flat_map` is `TrustedLen` when:
-    // 1. `I` is `TrustedLen` (which it is)
-    // and 2. The output getting flattened is an array/reference to an array (which it is)
-    let output = input
-        .iter()
-        .copied()
-        .flat_map(byte_to_hex::<UPPER>)
-        .collect();
+    let mut output = Vec::with_capacity(out_len);
+    unsafe {
+        // vec only guarantees we get "at least" `out_len` capacity, we might have a bit extra.
+        encode_impl::<UPPER>(input, &mut output.spare_capacity_mut()[..out_len]);
+        // safety: `encode_inner` guarantees that `output.len()` elements are written.
+        output.set_len(out_len);
+    }
 
     // Safety: for all values of input bytes both output bytes will be valid ascii-hex (as asserted by tests for `byte_to_hex`).
     // Ascii hex characters are valid UTF-8 (because ascii is valid UTF-8).
@@ -70,7 +72,26 @@ pub(super) fn encode<const UPPER: bool>(input: &[u8]) -> String {
     unsafe { String::from_utf8_unchecked(output) }
 }
 
-// todo: const fn when `&mut` in const fn is stable.
+// note: There *is* a way to deduplicate this with the slice/array impls, but honestly, it just isn't worth it with the current stdlib.
+// coincidentally, this function existing means we *could* expose a write once method.
+// For instance if someone needs to do an in-place init of an array/slice.
+///
+/// # Safety
+/// `output` *must* have exactly the right length for `input`.
+///
+/// It is safe to assume that all of `output` is initialized after this function returns normally.
+///
+/// This function will *never* write uninitialized values.
+#[inline(always)]
+fn encode_impl<const UPPER: bool>(input: &[u8], output: &mut [MaybeUninit<u8>]) {
+    // array chunks would be _neat_, but relying on LLVM here is _fine_ (just make sure it code-gens well).
+    for (output, input) in output.chunks_exact_mut(2).zip(input.iter().copied()) {
+        let byte = byte_to_hex::<UPPER>(input);
+        [output[0], output[1]] = [MaybeUninit::new(byte[0]), MaybeUninit::new(byte[1])];
+    }
+}
+
+// todo: const fn when `&mut` in const fn is stable... And everything else.
 pub(super) fn encode_to_slice<'a, const UPPER: bool>(
     input: &[u8],
     output: &'a mut [u8],
